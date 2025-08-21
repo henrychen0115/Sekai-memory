@@ -91,7 +91,7 @@ docker-compose exec memory_system python -c "from memory_manager import MemoryMa
 
 ## 📚 Populate Database
 
-There are a total of 50 chapters pre-stored in memory_data.json, typing chapter range 1-50 will load all the pre-saved stories
+There are a total of 50 chapters pre-stored in memory_data.json, typing chapter range 1-50 will load all the pre-saved stories. Make sure to populate the database first if the database is empty.
 
 ### Interactive Mode
 
@@ -123,6 +123,8 @@ echo "3" | docker-compose exec -T memory_system python populate_database.py
 4. **Insert**: Stores valid memories in database
 
 ## 🔍 Memory Retrieval
+
+Make sure to populate database first if database is empty.
 
 ### Interactive Mode
 
@@ -246,89 +248,4 @@ docker-compose exec memory_system python -c "from memory_manager import MemoryMa
 
 # List memories for character
 docker-compose exec memory_system python -c "from memory_manager import MemoryManager; mm = MemoryManager(); print(mm.list_memories_for_character('Byleth', limit=10))"
-```
-
-### Development and Debugging
-
-```bash
-# Access container shell
-docker-compose exec memory_system bash
-
-# Check file structure
-docker-compose exec memory_system ls -la /app/
-
-# Test imports
-docker-compose exec memory_system python -c "from memory_manager import MemoryManager; print('✅ All imports successful')"
-```
-
-## 📈 Performance Monitoring
-
-### Access Count Tracking
-
-The system automatically tracks memory access:
-
-- Increments `access_count` on each retrieval
-- Influences LLM scoring algorithm
-- Helps identify frequently accessed memories
-
-### LLM Agent Scoring
-
-Memories are scored based on:
-
-- **Relevance** (40%): How well memory answers the query
-- **Salience** (25%): Memory importance
-- **Recency** (20%): Chapter number (lower = older)
-- **Access Frequency** (15%): How often memory is accessed
-
-### Performance Metrics
-
-- **Insertion Time**: ~2-4 seconds per chapter
-- **Retrieval Time**: ~1-4 seconds per query
-- **Memory Count**: Varies by chapter (2-7 memories per chapter)
-
-## 🛠️ Troubleshooting
-
-### Common Issues
-
-**1. Port 5432 already in use**
-
-```bash
-# Stop conflicting PostgreSQL
-sudo systemctl stop postgresql
-# Or
-docker stop $(docker ps -q --filter ancestor=postgres)
-```
-
-**2. API Key errors**
-
-```bash
-# Check environment variables
-docker-compose exec memory_system env | grep API
-```
-
-**3. Database connection issues**
-
-```bash
-# Check PostgreSQL health
-docker-compose exec memory_postgres pg_isready -U memory_user -d memory_system
-```
-
-**4. Memory retrieval returns empty results**
-
-```bash
-# Check if database is populated
-docker-compose exec memory_system python -c "from memory_manager import MemoryManager; print(MemoryManager().get_database_stats())"
-```
-
-### Logs and Debugging
-
-```bash
-# View application logs
-docker-compose logs -f memory_system
-
-# View database logs
-docker-compose logs -f memory_postgres
-
-# Check container status
-docker-compose ps
 ```
