@@ -692,22 +692,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Only important information is logged
+
 logger.info(f"Processing Chapter {chapter_number}")
 logger.info(f"Processing Results: {extracted} extracted, {validated} validated, {inserted} inserted")
 logger.error(f"Critical error: {error}")
 ```
 
-**Optimized Logging Strategy:**
-- **Minimal Logging**: Only essential information is logged
-- **Batch Operations**: Embedding generation is batched to reduce API calls
-- **Error Focus**: Errors and warnings are prioritized
-- **Performance**: Reduced logging overhead for better performance
-
-**Key Optimizations:**
-- **Single API Call**: All embeddings generated in one batch call
-- **Reduced Verbosity**: Removed excessive step-by-step logging
-- **Production Ready**: Clean, minimal log output
 
 ---
 
