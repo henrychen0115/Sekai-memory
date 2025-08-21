@@ -2,7 +2,7 @@
 
 A multi-character memory management system built with PostgreSQL, pgvector, LangGraph, and LLMs. This system stores, retrieves, and manages character-specific memories with semantic search capabilities.
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 Sekai-memory/
@@ -25,7 +25,7 @@ Sekai-memory/
 └── docker-compose.yml       # Docker configuration
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -71,7 +71,7 @@ You should see three containers running:
 - `memory_system_app` (Python application)
 - `memory_pgadmin` (Database management interface)
 
-## 📊 System Architecture
+## System Architecture
 
 ### Services
 
@@ -87,7 +87,7 @@ You should see three containers running:
 - **Conflict Resolution**: Deduplication and consistency checking
 - **Access Tracking**: Memory usage monitoring and scoring
 
-## 🔧 API Routes and Functions
+## API Routes and Functions
 
 ### Core Memory Manager Functions
 
@@ -127,7 +127,7 @@ The `LangGraphMemoryProcessor` class handles the workflow:
 - `test_internal_consistency()` - Test for memory contradictions
 - `test_system_performance()` - Performance benchmarking
 
-## 🗄️ Database Management
+## Database Management
 
 ### Access pgAdmin Web Interface
 
@@ -152,7 +152,7 @@ docker-compose exec memory_postgres psql -U memory_user -d memory_system
 docker-compose exec memory_system python -c "from memory_manager.memory_manager import MemoryManager; print(MemoryManager().get_database_stats())"
 ```
 
-## 📚 Populate Database
+## Populate Database
 
 There are a total of 50 chapters pre-stored in memory_data.json, typing chapter range 1-50 will load all the pre-saved stories. Make sure to populate the database first if the database is empty.
 
@@ -229,7 +229,7 @@ docker-compose exec memory_system python retrieve_memories.py "Byleth" "office m
 ⏱️ Total Query Time: 1163.62ms
 ```
 
-## 🧪 Testing and Evaluation
+## Testing and Evaluation
 
 ### 1. Retrieval Accuracy Test
 
