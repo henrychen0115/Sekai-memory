@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # PostgreSQL with pgvector extension
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: memory_postgres
+    environment:
+      POSTGRES_DB: memory_system
+      POSTGRES_USER: memory_user
+      POSTGRES_PASSWORD: memory_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./setup_pgvector.sql:/docker-entrypoint-initdb.d/01-setup.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U memory_user -d memory_system"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Memory System Application (Development Mode)
+  memory_system:
+    build: .
+    container_name: memory_system_app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DB_HOST=postgres
+      - DB_NAME=memory_system
+      - DB_USER=memory_user
+      - DB_PASSWORD=memory_password
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+    volumes:
+      # Mount entire source directory for live editing
+      - .:/app
+      # Exclude directories that shouldn't be mounted
+      - /app/__pycache__
+      - /app/.git
+      - /app/logs
+      - /app/.env
+    ports:
+      - "8000:8000"
+    stdin_open: true
+    tty: true
+    # Use bash for interactive development
+    command: ["bash"]
+
+  # pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: memory_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "8080:80"
+    depends_on:
+      - postgres
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+volumes:
+  postgres_data:
+  pgadmin_data:

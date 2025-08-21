@@ -1,0 +1,8 @@
+psycopg2-binary
+pgvector
+langchain
+langchain-openai
+langchain-core
+langgraph
+langchain-community
+python-dotenv
