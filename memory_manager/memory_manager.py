@@ -10,6 +10,7 @@ Provides core functionalities for the Sekai Memory System:
 import os
 import json
 import uuid
+import logging
 import psycopg2
 from typing import List, Dict, Optional, Tuple
 from dotenv import load_dotenv
@@ -20,6 +21,10 @@ from .langgraph_memory_processor import LangGraphMemoryProcessor
 
 # Load environment variables
 load_dotenv()
+
+# Setup logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 class MemoryManager:
     """Central memory management system for the Sekai Memory System"""
@@ -64,21 +69,18 @@ class MemoryManager:
         Returns:
             Dict: Processing results with counts and status
         """
-        print(f"📝 Writing new memories for Chapter {chapter_data['chapter_number']}...")
+        logger.info(f"Writing new memories for Chapter {chapter_data['chapter_number']}")
         
         try:
             # Use LangGraph processor to handle the entire workflow
             result = self.processor.process_chapter(chapter_data)
             
-            print(f"✅ Memory writing completed:")
-            print(f"   Extracted: {result['extracted_count']}")
-            print(f"   Validated: {result['validated_count']}")
-            print(f"   Inserted: {result['inserted_count']}")
+            logger.info(f"Memory writing completed: extracted={result['extracted_count']}, validated={result['validated_count']}, inserted={result['inserted_count']}")
             
             return result
             
         except Exception as e:
-            print(f"❌ Error writing memories: {e}")
+            logger.error(f"Error writing memories: {e}", exc_info=True)
             return {
                 'success': False,
                 'extracted_count': 0,
@@ -98,7 +100,7 @@ class MemoryManager:
         Returns:
             bool: Success status
         """
-        print(f"🔄 Updating memory ID {memory_id}...")
+        logger.info(f"Updating memory ID {memory_id}")
         
         try:
             conn = self._get_db_connection()
@@ -109,7 +111,7 @@ class MemoryManager:
             existing_memory = cursor.fetchone()
             
             if not existing_memory:
-                print(f"❌ Memory ID {memory_id} not found")
+                logger.error(f"Memory ID {memory_id} not found")
                 return False
             
             # Generate new embedding for the updated text
@@ -126,11 +128,11 @@ class MemoryManager:
             cursor.close()
             conn.close()
             
-            print(f"✅ Successfully updated memory ID {memory_id}")
+            logger.info(f"Successfully updated memory ID {memory_id}")
             return True
             
         except Exception as e:
-            print(f"❌ Error updating memory: {e}")
+            logger.error(f"Error updating memory: {e}", exc_info=True)
             return False
     
     def update_memory_by_character_and_content(self, character: str, old_content: str, new_content: str) -> bool:
@@ -145,7 +147,7 @@ class MemoryManager:
         Returns:
             bool: Success status
         """
-        print(f"🔄 Updating memory for {character}...")
+        logger.info(f"Updating memory for {character}")
         
         try:
             conn = self._get_db_connection()
@@ -160,7 +162,7 @@ class MemoryManager:
             memory = cursor.fetchone()
             
             if not memory:
-                print(f"❌ Memory not found for {character} with content: {old_content[:50]}...")
+                logger.error(f"Memory not found for {character} with content: {old_content[:50]}...")
                 return False
             
             memory_id = memory[0]
@@ -179,11 +181,11 @@ class MemoryManager:
             cursor.close()
             conn.close()
             
-            print(f"✅ Successfully updated memory ID {memory_id} for {character}")
+            logger.info(f"Successfully updated memory ID {memory_id} for {character}")
             return True
             
         except Exception as e:
-            print(f"❌ Error updating memory: {e}")
+            logger.error(f"Error updating memory: {e}", exc_info=True)
             return False
     
     def retrieve_memories(self, character: str, query: str, limit: int = 10) -> List[Dict]:
@@ -198,7 +200,7 @@ class MemoryManager:
         Returns:
             List[Dict]: List of memory dictionaries with LLM agent scores
         """
-        print(f"🔍 Retrieving memories for {character} with query: '{query}'...")
+        logger.info(f"Retrieving memories for {character} with query: '{query}'")
         
         try:
             # Generate embedding for the query
@@ -250,11 +252,11 @@ class MemoryManager:
             # Use LLM agent to score and select top memories
             scored_memories = self._score_memories_with_llm(candidate_memories, query, limit)
             
-            print(f"✅ Retrieved {len(scored_memories)} memories for {character}")
+            logger.info(f"Successfully retrieved {len(scored_memories)} memories for {character}")
             return scored_memories
             
         except Exception as e:
-            print(f"❌ Error retrieving memories: {e}")
+            logger.error(f"Error retrieving memories for {character}: {e}", exc_info=True)
             return []
     
     def _score_memories_with_llm(self, candidate_memories: List[Dict], query: str, limit: int) -> List[Dict]:

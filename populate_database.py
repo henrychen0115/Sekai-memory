@@ -148,6 +148,27 @@ def populate_database_langgraph(config):
     Returns:
         bool: Success status
     """
+    # Initialize processing setup
+    setup_result = _setup_langgraph_processing(config)
+    if not setup_result:
+        return False
+    
+    processor, chapters_to_process = setup_result
+    
+    # Display processing header
+    _display_processing_header(chapters_to_process)
+    
+    # Process all chapters
+    processing_stats = _process_all_chapters(processor, chapters_to_process)
+    
+    # Display final summary
+    _display_final_summary(processing_stats)
+    
+    return _determine_success_status(processing_stats)
+
+
+def _setup_langgraph_processing(config):
+    """Setup LangGraph processing with data loading and validation"""
     # Load story data (for range and single modes)
     story_data = None
     if config["mode"] in ["range", "single"]:
@@ -163,82 +184,117 @@ def populate_database_langgraph(config):
     # Create LangGraph memory processor
     processor = LangGraphMemoryProcessor()
     
+    return processor, chapters_to_process
+
+
+def _display_processing_header(chapters_to_process):
+    """Display the processing header with chapter count"""
     print(f"\n🚀 LangGraph Memory Processing")
     print(f"Processing {len(chapters_to_process)} chapters...")
     print("=" * 60)
-    
-    # Start timing the entire insertion process
+
+
+def _process_all_chapters(processor, chapters_to_process):
+    """Process all chapters and collect statistics"""
     total_start_time = time.time()
     
-    total_extracted = 0
-    total_validated = 0
-    total_conflict_checked = 0
-    total_inserted = 0
-    total_errors = 0
+    processing_stats = {
+        'total_extracted': 0,
+        'total_validated': 0,
+        'total_conflict_checked': 0,
+        'total_inserted': 0,
+        'total_errors': 0
+    }
     
     for i, chapter_data in enumerate(chapters_to_process, 1):
-        chapter_num = chapter_data['chapter_number']
-        synopsis = chapter_data['synopsis']
-        
-        print(f"\n📖 Chapter {chapter_num} ({i}/{len(chapters_to_process)})")
-        print(f"📝 Synopsis: {synopsis[:100]}{'...' if len(synopsis) > 100 else ''}")
-        print("-" * 40)
-        
-        # Start timing individual chapter processing
-        chapter_start_time = time.time()
-        
-        # Process chapter through LangGraph workflow
-        results = processor.process_chapter(chapter_data)
-        
-        # Calculate chapter processing time
-        chapter_time = (time.time() - chapter_start_time) * 1000  # Convert to milliseconds
+        chapter_stats = _process_single_chapter(processor, chapter_data, i, len(chapters_to_process))
         
         # Accumulate statistics
-        total_extracted += results['extracted_count']
-        total_validated += results['validated_count']
-        total_conflict_checked += results['conflict_checked_count']
-        total_inserted += results['inserted_count']
-        total_errors += len(results['errors'])
-        
-        # Display detailed results for this chapter
-        print(f"\n📊 Chapter {chapter_num} Results:")
-        print(f"   🔍 Extracted: {results['extracted_count']}")
-        print(f"   ✅ Validated: {results['validated_count']}")
-        print(f"   🔍 Conflict Checked: {results['conflict_checked_count']}")
-        print(f"   💾 Inserted: {results['inserted_count']}")
-        print(f"   ⏱️ Processing Time: {chapter_time:.2f}ms")
-        
-        if results['errors']:
-            print(f"   ❌ Errors: {len(results['errors'])}")
-            for error in results['errors']:
-                print(f"      - {error}")
-        
-        # Show processing log
-        if results['processing_log']:
-            print(f"   📋 Processing Log:")
-            for log_entry in results['processing_log']:
-                print(f"      - {log_entry}")
+        for key in processing_stats:
+            processing_stats[key] += chapter_stats.get(key, 0)
     
-    # Calculate total insertion time
-    total_time = (time.time() - total_start_time) * 1000  # Convert to milliseconds
+    processing_stats['total_time'] = (time.time() - total_start_time) * 1000
+    return processing_stats
+
+
+def _process_single_chapter(processor, chapter_data, chapter_index, total_chapters):
+    """Process a single chapter and return its statistics"""
+    chapter_num = chapter_data['chapter_number']
+    synopsis = chapter_data['synopsis']
     
-    # Final summary
+    _display_chapter_header(chapter_num, chapter_index, total_chapters, synopsis)
+    
+    # Start timing individual chapter processing
+    chapter_start_time = time.time()
+    
+    # Process chapter through LangGraph workflow
+    results = processor.process_chapter(chapter_data)
+    
+    # Calculate chapter processing time
+    chapter_time = (time.time() - chapter_start_time) * 1000
+    
+    # Display chapter results
+    _display_chapter_results(chapter_num, results, chapter_time)
+    
+    # Return chapter statistics
+    return {
+        'total_extracted': results['extracted_count'],
+        'total_validated': results['validated_count'],
+        'total_conflict_checked': results['conflict_checked_count'],
+        'total_inserted': results['inserted_count'],
+        'total_errors': len(results['errors'])
+    }
+
+
+def _display_chapter_header(chapter_num, chapter_index, total_chapters, synopsis):
+    """Display header information for a single chapter"""
+    print(f"\n📖 Chapter {chapter_num} ({chapter_index}/{total_chapters})")
+    print(f"📝 Synopsis: {synopsis[:100]}{'...' if len(synopsis) > 100 else ''}")
+    print("-" * 40)
+
+
+def _display_chapter_results(chapter_num, results, chapter_time):
+    """Display detailed results for a single chapter"""
+    print(f"\n📊 Chapter {chapter_num} Results:")
+    print(f"   🔍 Extracted: {results['extracted_count']}")
+    print(f"   ✅ Validated: {results['validated_count']}")
+    print(f"   🔍 Conflict Checked: {results['conflict_checked_count']}")
+    print(f"   💾 Inserted: {results['inserted_count']}")
+    print(f"   ⏱️ Processing Time: {chapter_time:.2f}ms")
+    
+    if results['errors']:
+        print(f"   ❌ Errors: {len(results['errors'])}")
+        for error in results['errors']:
+            print(f"      - {error}")
+    
+    # Show processing log
+    if results['processing_log']:
+        print(f"   📋 Processing Log:")
+        for log_entry in results['processing_log']:
+            print(f"      - {log_entry}")
+
+
+def _display_final_summary(processing_stats):
+    """Display the final summary of all processing"""
     print(f"\n" + "=" * 60)
     print(f"🎉 LangGraph Database Population Completed!")
     print(f"📊 Final Statistics:")
-    print(f"   🔍 Total Extracted: {total_extracted}")
-    print(f"   ✅ Total Validated: {total_validated}")
-    print(f"   🔍 Total Conflict Checked: {total_conflict_checked}")
-    print(f"   💾 Total Inserted: {total_inserted}")
-    print(f"   ❌ Total Errors: {total_errors}")
-    print(f"   ⏱️ Total Insertion Time: {total_time:.2f}ms")
-    
-    if total_inserted > 0:
-        print(f"\n✅ Successfully inserted {total_inserted} new memories into database")
+    print(f"   🔍 Total Extracted: {processing_stats['total_extracted']}")
+    print(f"   ✅ Total Validated: {processing_stats['total_validated']}")
+    print(f"   🔍 Total Conflict Checked: {processing_stats['total_conflict_checked']}")
+    print(f"   💾 Total Inserted: {processing_stats['total_inserted']}")
+    print(f"   ❌ Total Errors: {processing_stats['total_errors']}")
+    print(f"   ⏱️ Total Insertion Time: {processing_stats['total_time']:.2f}ms")
+
+
+def _determine_success_status(processing_stats):
+    """Determine if the processing was successful"""
+    if processing_stats['total_inserted'] > 0:
+        print(f"\n✅ Successfully inserted {processing_stats['total_inserted']} new memories into database")
         return True
     else:
         print(f"\n⚠️  No new memories were inserted (likely due to conflict checking)")
-        return total_errors == 0  # Consider successful if no errors, even if no insertions
+        return processing_stats['total_errors'] == 0  # Consider successful if no errors, even if no insertions
 
 def main():
     """Main function to handle user interaction"""
