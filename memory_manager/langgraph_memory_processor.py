@@ -11,6 +11,7 @@ Uses LangGraph to process memory insertion with multiple nodes:
 import os
 import json
 import uuid
+import logging
 import psycopg2
 from typing import Dict, List, Any, TypedDict
 from dotenv import load_dotenv
@@ -20,6 +21,13 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langgraph.graph import StateGraph, END
+
+# Configure logging - only important information
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -78,7 +86,7 @@ def extract_memories(state: MemoryState) -> MemoryState:
     chapter_num = chapter_data['chapter_number']
     synopsis = chapter_data['synopsis']
     
-    print(f"🔍 Extracting memories from Chapter {chapter_num}...")
+    # Removed excessive logging - only log important steps
     
     # Create extraction prompt
     extraction_prompt = ChatPromptTemplate.from_template(
@@ -142,7 +150,7 @@ def extract_memories(state: MemoryState) -> MemoryState:
         step_end_time = time.time()
         step_time = (step_end_time - step_start_time) * 1000  # Convert to milliseconds
         
-        print(f"✅ Extracted {len(extracted_memories)} memories")
+        # Removed excessive logging
         
         return {
             **state,
@@ -153,7 +161,7 @@ def extract_memories(state: MemoryState) -> MemoryState:
         
     except Exception as e:
         error_msg = f"Error extracting memories: {e}"
-        print(f"❌ {error_msg}")
+        logger.error(f"{error_msg}")
         return {
             **state,
             "errors": state["errors"] + [error_msg],
@@ -174,7 +182,7 @@ def validate_memories(state: MemoryState) -> MemoryState:
     synopsis = chapter_data['synopsis']
     extracted_memories = state["extracted_memories"]
     
-    print(f"✅ Validating {len(extracted_memories)} memories against synopsis...")
+    # Removed excessive logging
     
     # Create validation prompt
     validation_prompt = ChatPromptTemplate.from_template(
@@ -230,7 +238,7 @@ def validate_memories(state: MemoryState) -> MemoryState:
         step_end_time = time.time()
         step_time = (step_end_time - step_start_time) * 1000  # Convert to milliseconds
         
-        print(f"✅ Validated: {len(validated_memories)} valid, {len(extracted_memories) - len(validated_memories)} rejected")
+        # Removed excessive logging
         
         return {
             **state,
@@ -248,9 +256,13 @@ def validate_memories(state: MemoryState) -> MemoryState:
             "processing_log": state["processing_log"] + [error_msg]
         }
 
-# Node 3: Check for Conflicts/Redundancy
+# Node 3: Check for Conflicts/Redundancy (HYBRID - Adaptive approach)
 def check_conflicts(state: MemoryState) -> MemoryState:
-    """Check each memory for conflicts or redundancy with existing memories"""
+    """
+    Hybrid conflict checking with adaptive approach:
+    - ≤50 memories: Use efficient bulk loading approach
+    - >50 memories: Use database-first approach for scalability
+    """
     
     import time
     step_start_time = time.time()
@@ -260,7 +272,7 @@ def check_conflicts(state: MemoryState) -> MemoryState:
     
     validated_memories = state["validated_memories"]
     
-    print(f"🔍 Checking {len(validated_memories)} memories for conflicts...")
+    # Removed excessive logging
     
     try:
         conn = get_db_connection()
@@ -268,78 +280,33 @@ def check_conflicts(state: MemoryState) -> MemoryState:
         
         conflict_checked_memories = []
         
-        for memory in validated_memories:
-            source_char = memory['source']
-            
-            # Get existing memories for this character
-            cursor.execute("""
-                SELECT memory_text, embedding, chapter
-                FROM memories
-                WHERE source_char = %s
-                ORDER BY chapter DESC, salience DESC
-                LIMIT 15
-            """, (source_char,))
-            
-            existing_memories = cursor.fetchall()
-            
-            if not existing_memories:
-                # No existing memories, accept this one
-                conflict_checked_memories.append(memory)
-                continue
-            
-            # Create embedding for new memory
-            new_memory_embedding = embeddings_model.embed_query(memory['memory_text'])
-            
-            # Check semantic similarity with existing memories
-            max_similarity = 0.0
-            most_similar_text = ""
-            most_similar_chapter = 0
-            
-            for existing_text, existing_embedding, existing_chapter in existing_memories:
-                similarity = calculate_cosine_similarity(new_memory_embedding, existing_embedding)
-                if similarity > max_similarity:
-                    max_similarity = similarity
-                    most_similar_text = existing_text
-                    most_similar_chapter = existing_chapter
-            
-            # More intelligent conflict detection
-            is_duplicate = False
-            
-            # Only reject if it's an extremely close match (near-duplicate)
-            if max_similarity > 0.98:
-                is_duplicate = True
-                print(f"   ❌ Rejected {source_char} memory: Near-duplicate (similarity: {max_similarity:.3f})")
-                print(f"      Similar to: Ch.{most_similar_chapter} - {most_similar_text[:80]}...")
-            
-            # For high similarity but not duplicate, use LLM to make final decision
-            elif max_similarity > 0.90:
-                # Use LLM to determine if it's truly a duplicate
-                is_duplicate = check_if_duplicate_with_llm(memory['memory_text'], most_similar_text)
-                if is_duplicate:
-                    print(f"   ❌ Rejected {source_char} memory: LLM determined duplicate (similarity: {max_similarity:.3f})")
-                else:
-                    print(f"   ✅ Accepted {source_char} memory: Similar but different (similarity: {max_similarity:.3f})")
-            
-            if not is_duplicate:
-                conflict_checked_memories.append(memory)
+        # HYBRID APPROACH: Choose strategy based on database size
+        # Check total number of memories in database to determine approach
+        cursor.execute("SELECT COUNT(*) FROM memories")
+        total_memories_in_db = cursor.fetchone()[0]
+        
+        if total_memories_in_db <= 1000:  # Small database - use bulk loading
+            conflict_checked_memories = _bulk_loading_conflict_check(cursor, validated_memories)
+        else:  # Large database - use database-first approach
+            conflict_checked_memories = _database_first_conflict_check(cursor, validated_memories)
         
         cursor.close()
         conn.close()
         
         step_end_time = time.time()
-        step_time = (step_end_time - step_start_time) * 1000  # Convert to milliseconds
+        step_time = (step_end_time - step_start_time) * 1000
         
-        print(f"✅ Conflict check: {len(conflict_checked_memories)} accepted, {len(validated_memories) - len(conflict_checked_memories)} rejected")
+        # Removed excessive logging
         
         return {
             **state,
             "conflict_checked_memories": conflict_checked_memories,
-            "processing_log": state["processing_log"] + [f"Conflict check: {len(conflict_checked_memories)}/{len(validated_memories)} accepted"],
+            "processing_log": state["processing_log"] + [f"Hybrid conflict check: {len(conflict_checked_memories)}/{len(validated_memories)} accepted"],
             "step_times": {**state.get("step_times", {}), "conflict_check": step_time}
         }
         
     except Exception as e:
-        error_msg = f"Error checking conflicts: {e}"
+        error_msg = f"Error in hybrid conflict checking: {e}"
         print(f"❌ {error_msg}")
         return {
             **state,
@@ -359,7 +326,7 @@ def insert_memories(state: MemoryState) -> MemoryState:
     
     memories_to_insert = state["conflict_checked_memories"]
     
-    print(f"💾 Inserting {len(memories_to_insert)} memories into database...")
+    # Removed excessive logging
     
     try:
         conn = get_db_connection()
@@ -401,7 +368,7 @@ def insert_memories(state: MemoryState) -> MemoryState:
         step_end_time = time.time()
         step_time = (step_end_time - step_start_time) * 1000  # Convert to milliseconds
         
-        print(f"✅ Successfully inserted {len(inserted_memories)} memories")
+        # Removed excessive logging
         
         return {
             **state,
@@ -460,7 +427,7 @@ def check_if_duplicate_with_llm(new_memory_text, existing_memory_text):
         return result.get("is_duplicate", False)
         
     except Exception as e:
-        print(f"   ⚠️  LLM duplicate check failed: {e}")
+        logger.warning(f"LLM duplicate check failed: {e}")
         return False  # Default to accepting if LLM check fails
 
 def calculate_cosine_similarity(vec1, vec2):
@@ -478,6 +445,151 @@ def calculate_cosine_similarity(vec1, vec2):
         return 0
     
     return dot_product / (norm1 * norm2)
+
+
+def _bulk_loading_conflict_check(cursor, validated_memories: List[Dict]) -> List[Dict]:
+    """
+    Efficient bulk loading approach for small datasets (≤50 memories).
+    Single database query + in-memory processing.
+    """
+    conflict_checked_memories = []
+    
+    # Get unique characters to fetch existing memories
+    unique_characters = list(set(memory['source'] for memory in validated_memories))
+    
+    # Single bulk query to fetch ALL existing memories for ALL characters
+    # Removed excessive logging
+    cursor.execute("""
+        SELECT source_char, memory_text, embedding, chapter, salience
+        FROM memories
+        WHERE source_char = ANY(%s)
+        ORDER BY source_char, chapter DESC, salience DESC
+    """, (unique_characters,))
+    
+    # Group existing memories by character
+    existing_memories_by_char = {}
+    for row in cursor.fetchall():
+        source_char, memory_text, embedding, chapter, salience = row
+        if source_char not in existing_memories_by_char:
+            existing_memories_by_char[source_char] = []
+        
+        # Limit to top 15 memories per character (like original logic)
+        if len(existing_memories_by_char[source_char]) < 15:
+            existing_memories_by_char[source_char].append((memory_text, embedding, chapter, salience))
+    
+    # Generate all embeddings in batch to avoid multiple API calls
+    memory_texts = [memory['memory_text'] for memory in validated_memories]
+    new_memory_embeddings = embeddings_model.embed_documents(memory_texts)
+    
+    # Process each new memory against existing ones in memory
+    for i, memory in enumerate(validated_memories):
+        source_char = memory['source']
+        existing_memories = existing_memories_by_char.get(source_char, [])
+        
+        if not existing_memories:
+            # No existing memories for this character
+            conflict_checked_memories.append(memory)
+            continue
+        
+        # Use pre-generated embedding
+        new_memory_embedding = new_memory_embeddings[i]
+        
+        # Check semantic similarity with existing memories (in-memory)
+        max_similarity = 0.0
+        most_similar_text = ""
+        most_similar_chapter = 0
+        
+        for existing_text, existing_embedding, existing_chapter, existing_salience in existing_memories:
+            similarity = calculate_cosine_similarity(new_memory_embedding, existing_embedding)
+            if similarity > max_similarity:
+                max_similarity = similarity
+                most_similar_text = existing_text
+                most_similar_chapter = existing_chapter
+        
+        # Conflict detection logic
+        is_duplicate = False
+        
+        # Only reject if it's an extremely close match (near-duplicate)
+        if max_similarity > 0.98:
+            is_duplicate = True
+            # Removed excessive logging
+        
+        # For high similarity but not duplicate, use LLM to make final decision
+        elif max_similarity > 0.90:
+            is_duplicate = check_if_duplicate_with_llm(memory['memory_text'], most_similar_text)
+            if is_duplicate:
+                # Removed excessive logging
+                pass
+            else:
+                # Removed excessive logging
+                pass
+        
+        if not is_duplicate:
+            conflict_checked_memories.append(memory)
+    
+    return conflict_checked_memories
+
+
+def _database_first_conflict_check(cursor, validated_memories: List[Dict]) -> List[Dict]:
+    """
+    Database-first approach for large datasets (>50 memories).
+    Individual queries with vector search for scalability.
+    """
+    conflict_checked_memories = []
+    
+    # Generate all embeddings in batch to avoid multiple API calls
+    memory_texts = [memory['memory_text'] for memory in validated_memories]
+    new_memory_embeddings = embeddings_model.embed_documents(memory_texts)
+    
+    for i, memory in enumerate(validated_memories):
+        source_char = memory['source']
+        
+        # Use pre-generated embedding
+        new_memory_embedding = new_memory_embeddings[i]
+        
+        # Use database vector search to find the most similar memory
+        cursor.execute("""
+            SELECT memory_text, embedding, chapter, salience
+            FROM memories
+            WHERE source_char = %s
+            ORDER BY embedding <=> %s::vector
+            LIMIT 1
+        """, (source_char, new_memory_embedding))
+        
+        result = cursor.fetchone()
+        
+        if not result:
+            # No existing memories for this character
+            conflict_checked_memories.append(memory)
+            continue
+        
+        existing_text, existing_embedding, existing_chapter, existing_salience = result
+        
+        # Calculate similarity
+        similarity = calculate_cosine_similarity(new_memory_embedding, existing_embedding)
+        
+        # Conflict detection logic
+        is_duplicate = False
+        
+        # Only reject if it's an extremely close match (near-duplicate)
+        if similarity > 0.98:
+            is_duplicate = True
+            # Removed excessive logging
+        
+        # For high similarity but not duplicate, use LLM to make final decision
+        elif similarity > 0.90:
+            is_duplicate = check_if_duplicate_with_llm(memory['memory_text'], existing_text)
+            if is_duplicate:
+                # Removed excessive logging
+                pass
+            else:
+                # Removed excessive logging
+                pass
+        
+        if not is_duplicate:
+            conflict_checked_memories.append(memory)
+    
+    return conflict_checked_memories
 
 # Create LangGraph workflow
 def create_memory_workflow():
@@ -519,8 +631,7 @@ class LangGraphMemoryProcessor:
             Dict containing processing results
         """
         
-        print(f"\n🚀 LangGraph Memory Processing for Chapter {chapter_data['chapter_number']}")
-        print("=" * 60)
+        logger.info(f"Processing Chapter {chapter_data['chapter_number']}")
         
         # Initialize state
         initial_state = MemoryState(
@@ -551,22 +662,18 @@ class LangGraphMemoryProcessor:
                 "success": len(final_state["errors"]) == 0
             }
             
-            print(f"\n📊 Processing Results:")
-            print(f"   Extracted: {results['extracted_count']}")
-            print(f"   Validated: {results['validated_count']}")
-            print(f"   Conflict Checked: {results['conflict_checked_count']}")
-            print(f"   Inserted: {results['inserted_count']}")
+            logger.info(f"Processing Results: {results['extracted_count']} extracted, {results['validated_count']} validated, {results['conflict_checked_count']} conflict-checked, {results['inserted_count']} inserted")
             
             if results['errors']:
-                print(f"   Errors: {len(results['errors'])}")
+                logger.error(f"   Errors: {len(results['errors'])}")
                 for error in results['errors']:
-                    print(f"      - {error}")
+                    logger.error(f"      - {error}")
             
             return results
             
         except Exception as e:
             error_msg = f"Workflow execution failed: {e}"
-            print(f"❌ {error_msg}")
+            logger.error(f"{error_msg}")
             return {
                 "chapter_number": chapter_data['chapter_number'],
                 "extracted_count": 0,
@@ -591,7 +698,7 @@ def test_langgraph_processor():
     processor = LangGraphMemoryProcessor()
     results = processor.process_chapter(test_chapter)
     
-    print(f"\n🎉 Test completed: {'Success' if results['success'] else 'Failed'}")
+    logger.info(f"Test completed: {'Success' if results['success'] else 'Failed'}")
     return results
 
 if __name__ == "__main__":

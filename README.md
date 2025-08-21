@@ -185,7 +185,7 @@ echo "3" | docker-compose exec -T memory_system python populate_database.py
 3. **Conflict Check**: Removes duplicates and inconsistencies
 4. **Insert**: Stores valid memories in database
 
-##  Memory Retrieval
+## Memory Retrieval
 
 Make sure to populate database first if database is empty.
 
@@ -278,7 +278,7 @@ docker-compose exec memory_system python test_system_performance.py
 - Query retrieval time
 - Performance across different query complexities
 
-##  Management Commands
+## Management Commands
 
 ### Container Management
 
