@@ -32,12 +32,12 @@ gemini_llm = ChatOpenAI(
     openai_api_base="https://openrouter.ai/api/v1"
 )
 
-gpt_llm = ChatOpenAI(
-    model="google/gemini-2.0-flash-lite-001",
-    temperature=0,
-    openai_api_key=os.getenv("OPENROUTER_API_KEY"),
-    openai_api_base="https://openrouter.ai/api/v1"
-)
+# gpt_llm = ChatOpenAI(
+#     model="google/gemini-2.0-flash-lite-001",
+#     temperature=0,
+#     openai_api_key=os.getenv("OPENROUTER_API_KEY"),
+#     openai_api_base="https://openrouter.ai/api/v1"
+# )
 
 embeddings_model = OpenAIEmbeddings(
     model="text-embedding-ada-002",
@@ -217,7 +217,7 @@ def validate_memories(state: MemoryState) -> MemoryState:
             memories_text += f"{i+1}. [{memory['source']}] {memory['memory_text']}\n"
         
         # Validate memories using GPT-3.5-turbo
-        chain = validation_prompt | gpt_llm | JsonOutputParser()
+        chain = validation_prompt | gemini_llm | JsonOutputParser()
         validation_result = chain.invoke({
             "synopsis": synopsis,
             "memories_text": memories_text
@@ -451,7 +451,7 @@ def check_if_duplicate_with_llm(new_memory_text, existing_memory_text):
     )
     
     try:
-        chain = duplicate_check_prompt | gpt_llm | JsonOutputParser()
+        chain = duplicate_check_prompt | gemini_llm | JsonOutputParser()
         result = chain.invoke({
             "new_memory": new_memory_text,
             "existing_memory": existing_memory_text

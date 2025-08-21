@@ -7,7 +7,7 @@ Handles memory retrieval and scoring using MemoryManager
 import os
 import time
 from dotenv import load_dotenv
-from memory_manager import MemoryManager
+from memory_manager.memory_manager import MemoryManager
 
 # Load environment variables
 load_dotenv()

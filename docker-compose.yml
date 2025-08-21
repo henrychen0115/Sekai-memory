@@ -6,7 +6,7 @@ services:
     image: pgvector/pgvector:pg16
     container_name: memory_postgres
     environment:
-      POSTGRES_DB: memory_system
+      POSTGRES_DB: sekai_memory
       POSTGRES_USER: memory_user
       POSTGRES_PASSWORD: memory_password
     ports:
@@ -15,7 +15,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./setup_pgvector.sql:/docker-entrypoint-initdb.d/01-setup.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U memory_user -d memory_system"]
+      test: ["CMD-SHELL", "pg_isready -U memory_user -d sekai_memory"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -29,7 +29,7 @@ services:
         condition: service_healthy
     environment:
       - DB_HOST=postgres
-      - DB_NAME=memory_system
+      - DB_NAME=sekai_memory
       - DB_USER=memory_user
       - DB_PASSWORD=memory_password
       - OPENAI_API_KEY=${OPENAI_API_KEY}

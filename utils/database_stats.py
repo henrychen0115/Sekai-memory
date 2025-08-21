@@ -14,7 +14,7 @@ This script provides comprehensive statistics about the memory database includin
 import os
 import sys
 from dotenv import load_dotenv
-from memory_manager import MemoryManager
+from memory_manager.memory_manager import MemoryManager
 
 def get_database_statistics():
     """

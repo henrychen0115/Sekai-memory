@@ -1,16 +1,7 @@
 -- Setup script for pgvector and Sekai Memory System
 -- Run these commands in your PostgreSQL instance
 
--- 1. First, connect to the default 'postgres' database
--- \c postgres
-
--- 2. Create the sekai_memory database
-CREATE DATABASE sekai_memory;
-
--- 3. Connect to the sekai_memory database
--- \c sekai_memory
-
--- 4. Enable the pgvector extension
+-- Enable the pgvector extension
 -- Note: This requires pgvector to be installed in PostgreSQL
 CREATE EXTENSION IF NOT EXISTS vector;
 

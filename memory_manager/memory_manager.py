@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 from pgvector.psycopg2 import register_vector
 
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langgraph_memory_processor import LangGraphMemoryProcessor
+from .langgraph_memory_processor import LangGraphMemoryProcessor
 
 # Load environment variables
 load_dotenv()

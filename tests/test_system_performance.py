@@ -10,7 +10,7 @@ import statistics
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 
-from memory_manager import MemoryManager
+from memory_manager.memory_manager import MemoryManager
 
 # Load environment variables
 load_dotenv()

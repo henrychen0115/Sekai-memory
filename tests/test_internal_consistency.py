@@ -13,7 +13,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_openai import ChatOpenAI
 
-from memory_manager import MemoryManager
+from memory_manager.memory_manager import MemoryManager
 
 # Load environment variables
 load_dotenv()

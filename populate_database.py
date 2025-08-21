@@ -19,7 +19,7 @@ import re
 import time
 from dotenv import load_dotenv
 
-from langgraph_memory_processor import LangGraphMemoryProcessor
+from memory_manager.langgraph_memory_processor import LangGraphMemoryProcessor
 
 # Load environment variables
 load_dotenv()

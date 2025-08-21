@@ -2,6 +2,29 @@
 
 A multi-character memory management system built with PostgreSQL, pgvector, LangGraph, and LLMs. This system stores, retrieves, and manages character-specific memories with semantic search capabilities.
 
+## 📁 Project Structure
+
+```
+Sekai-memory/
+├── memory_manager/           # Core memory management functionality
+│   ├── __init__.py          # Package initialization
+│   ├── memory_manager.py    # Main memory manager class
+│   └── langgraph_memory_processor.py  # LangGraph workflow processor
+├── utils/                   # Utility scripts
+│   ├── clear_database.py    # Database clearing utility
+│   └── database_stats.py    # Database statistics and reporting
+├── tests/                   # System testing and evaluation
+│   ├── test_internal_consistency.py
+│   ├── test_retrieval_accuracy.py
+│   └── test_system_performance.py
+├── docs/                    # Documentation
+│   └── MEMORY_SYSTEM_ARCHITECTURE.md
+├── logs/                    # Application logs
+├── retrieve_memories.py     # Memory retrieval interface
+├── populate_database.py     # Database population script
+└── docker-compose.yml       # Docker configuration
+```
+
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -27,7 +50,7 @@ OPENROUTER_API_KEY=your_openrouter_api_key_here
 
 # Optional: Override default settings
 DB_HOST=postgres
-DB_NAME=memory_system
+DB_NAME=sekai_memory
 DB_USER=memory_user
 DB_PASSWORD=memory_password
 ```
@@ -64,6 +87,46 @@ You should see three containers running:
 - **Conflict Resolution**: Deduplication and consistency checking
 - **Access Tracking**: Memory usage monitoring and scoring
 
+## 🔧 API Routes and Functions
+
+### Core Memory Manager Functions
+
+The `MemoryManager` class provides the following key functions:
+
+#### Memory Operations
+
+- `write_new_memories(chapter_data)` - Write new memories using LangGraph workflow
+- `update_existing_memory(memory_id, new_memory_text)` - Update memory by ID
+- `update_memory_by_character_and_content(character, old_content, new_content)` - Update memory by content
+- `retrieve_memories(character, query, limit=10)` - Retrieve memories with LLM scoring
+- `get_memory_by_id(memory_id)` - Get specific memory by ID
+
+#### Database Management
+
+- `list_memories_for_character(character, limit=20)` - List all memories for a character
+- `get_database_stats()` - Get comprehensive database statistics
+- `clear_all_memories()` - Clear all memories from database
+
+### LangGraph Memory Processor
+
+The `LangGraphMemoryProcessor` class handles the workflow:
+
+- `process_chapter(chapter_data)` - Process chapter data through the complete workflow
+- Workflow nodes: Extract → Validate → Conflict Check → Insert
+
+### Utility Functions
+
+#### Database Utilities (`utils/`)
+
+- `clear_database()` - Clear all database contents
+- `get_database_statistics()` - Get detailed database statistics
+
+#### Testing Functions (`tests/`)
+
+- `test_retrieval_accuracy()` - Test memory retrieval precision/recall
+- `test_internal_consistency()` - Test for memory contradictions
+- `test_system_performance()` - Performance benchmarking
+
 ## 🗄️ Database Management
 
 ### Access pgAdmin Web Interface
@@ -75,7 +138,7 @@ You should see three containers running:
    - **Connection**:
      - Host = `postgres`
      - Port = `5432`
-     - Database = `memory_system`
+     - Database = `sekai_memory`
      - Username = `memory_user`
      - Password = `memory_password`
 
@@ -86,7 +149,7 @@ You should see three containers running:
 docker-compose exec memory_postgres psql -U memory_user -d memory_system
 
 # Check database stats
-docker-compose exec memory_system python -c "from memory_manager import MemoryManager; print(MemoryManager().get_database_stats())"
+docker-compose exec memory_system python -c "from memory_manager.memory_manager import MemoryManager; print(MemoryManager().get_database_stats())"
 ```
 
 ## 📚 Populate Database
@@ -238,14 +301,14 @@ docker-compose restart memory_system
 
 ```bash
 # Clear all memories
-docker-compose exec memory_system python clear_database.py
+docker-compose exec memory_system python utils/clear_database.py
 
 # Get comprehensive database statistics
-docker-compose exec memory_system python database_stats.py
+docker-compose exec memory_system python utils/database_stats.py
 
 # Check basic database stats
-docker-compose exec memory_system python -c "from memory_manager import MemoryManager; mm = MemoryManager(); print(mm.get_database_stats())"
+docker-compose exec memory_system python -c "from memory_manager.memory_manager import MemoryManager; mm = MemoryManager(); print(mm.get_database_stats())"
 
 # List memories for character
-docker-compose exec memory_system python -c "from memory_manager import MemoryManager; mm = MemoryManager(); print(mm.list_memories_for_character('Byleth', limit=10))"
+docker-compose exec memory_system python -c "from memory_manager.memory_manager import MemoryManager; mm = MemoryManager(); print(mm.list_memories_for_character('Byleth', limit=10))"
 ```
