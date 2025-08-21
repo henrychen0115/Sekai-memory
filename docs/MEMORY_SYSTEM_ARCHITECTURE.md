@@ -209,7 +209,7 @@ class MemoryManager:
     def get_memory_statistics(self) -> Dict
 ```
 
-````
+
 
 ### 3. Memory Retrieval Interface (`retrieve_memories.py`)
 
@@ -600,6 +600,48 @@ LIMIT %s;
 - **Storage Format**: PostgreSQL vector type
 - **Compression**: Automatic by pgvector extension
 
+#### Hybrid Deduplication Strategy
+
+The system implements an adaptive deduplication process that automatically chooses the most efficient strategy based on dataset size:
+
+**Strategy Selection:**
+- **≤1000 memories in database**: Bulk loading approach (single query + in-memory processing)
+- **>1000 memories in database**: Database-first approach (individual queries + vector search)
+
+**Bulk Loading Approach (Small Datasets):**
+```python
+# Single bulk query for all characters
+cursor.execute("""
+    SELECT source_char, memory_text, embedding, chapter, salience
+    FROM memories
+    WHERE source_char = ANY(%s)
+    ORDER BY source_char, chapter DESC, salience DESC
+""", (unique_characters,))
+
+# In-memory processing for fast comparisons
+for memory in new_memories:
+    existing_memories = memories_by_char.get(memory['source'], [])
+    # Fast in-memory similarity comparison
+```
+
+**Database-First Approach (Large Datasets):**
+```python
+# Individual queries with vector search
+for memory in new_memories:
+    cursor.execute("""
+        SELECT memory_text, embedding, chapter, salience
+        FROM memories
+        WHERE source_char = %s
+        ORDER BY embedding <=> %s::vector
+        LIMIT 1
+    """, (source_char, new_memory_embedding))
+```
+
+**Performance Benefits:**
+- **Small databases (≤1000 memories)**: 1 database query vs N queries
+- **Large databases (>1000 memories)**: Memory efficient, scales well
+- **Adaptive**: Automatically chooses optimal strategy based on database size
+
 #### Character-First Filtering Strategy
 
 - **Primary Filter**: Filter by character before vector search
@@ -638,16 +680,24 @@ cursor.execute("""
 
 #### Logging and Debugging
 
+The system uses Python's built-in `logging` module with optimized logging for production:
+
 ```python
 import logging
 
-logging.basicConfig(level=logging.INFO)
+# Configure logging - minimal format for production
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
-# Performance logging
-logger.info(f"Query completed in {response_time}ms")
-logger.info(f"Retrieved {memory_count} memories")
+
+logger.info(f"Processing Chapter {chapter_number}")
+logger.info(f"Processing Results: {extracted} extracted, {validated} validated, {inserted} inserted")
+logger.error(f"Critical error: {error}")
 ```
+
 
 ---
 
